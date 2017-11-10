@@ -49,7 +49,14 @@ function realtime_Wrapper(StimParams)
 %   - Fix issues with PL_GetPars (BY)
 %   - preallocate ts list for speed (BY) // what does this mean? KB
 %   - Initial skeleton of code we can work from (KB)
-%   - 
+%   - Initial visualization of code (KB)
+%   - shamelessly copy old StimParams struct, adjust (KB)
+% 
+%
+% TODONE:
+%   - Comment framework to build code around
+%
+%
 %
 % Author(s): Bryan Yoder, Kevin Bodkin
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
