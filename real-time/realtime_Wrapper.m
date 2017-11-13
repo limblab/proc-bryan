@@ -1,5 +1,5 @@
-function realtime_Wrapper(StimParams)
-% --- realtime_Wrapper(StimParams) ---
+function realtime_Wrapper(bmi_params)
+% --- realtime_Wrapper(bmi_params) ---
 %
 % A single function that will take care of running all of code necessary
 % for real-time stimulation in the rat, using the Plexon map server system
@@ -18,7 +18,7 @@ function realtime_Wrapper(StimParams)
 %
 %
 % -- Inputs -- 
-% StimParams        structure or name for file with stimulation params. 
+% bmi_parmas        structure or name for file with stimulation params. 
 %
 % -- Outputs --
 % None directly through the function, though it will store all relevant
@@ -40,7 +40,8 @@ function realtime_Wrapper(StimParams)
 %   WirelessStim objects - remember, this is supposed to be a wrapper
 %
 %   Also, I'm thinking we should use the old runBMIFES code as much as we
-%   can -- their setting structures, for example, are pretty well set up.
+%   can -- for the time being I'm just going to use their bmi_params and
+%   stim_params structures and initialization code
 %
 % TIPS:
 %
@@ -64,18 +65,19 @@ function realtime_Wrapper(StimParams)
 
 %% Load StimParams
 % load StimParams, use defaults if not specified
-if exist('StimParams')
-    [StimParams,loadError] = setupStimParams(StimParams); % this will be similar to the old defaultStimParams code
-else
-    [StimParams,loadError] = setupStimParams;
-end
-if ~isempty(loadError)
-    error(loadError) % kick us out of the function if necessary
+try
+    if ~exist('bmi_params')
+        bmi_params = []; % this will be similar to the old defaultStimParams code
+    end
+    
+    bmi_params = bmi_params_defaults(bmi_params);
+catch ME
+    error(ME) % kick us out oif necessary
 end
 
 %% Set up stim and plexon
 % handles for plexon and Ripple objects
-[wStim,pRead] = setupCommunication(StimParams);
+[wStim,pRead] = setupCommunication(bmi_params);
 
 
 

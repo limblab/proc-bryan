@@ -1,12 +1,12 @@
-function [wStim,pRead] = setupCommunication(StimParams)
+function [wStim,pRead] = setupCommunication(bmi_params)
 % --- setupCommunication(StimParams) ---
 %
-% Loads the relevant information from StimParams to open a Plexon socket
+% Loads the relevant information from bmi_params to open a Plexon socket
 % and a Ripple wireless_stim object. This is designed to be a subfunction
 % for running bmi-FES, not as a standalone function
 %
 % -- inputs --
-% StimParams        Defined per setupStimParams
+% bmi_params        Defined per setupStimParams
 % 
 % -- outputs --
 % wStim             wireless_stim object, per Ripple
@@ -24,13 +24,13 @@ pause(0.05);
 
 %% Ripple        
 
-stim_params = struct('dbg_lvl',1,'comm_timeout_ms',-1,'blocking',true,'zb_ch_page',17,'serial_string',params.bmi_fes_stim_params.port_wireless)
+stim_params = struct('dbg_lvl',1,'comm_timeout_ms',-1,'blocking',true,'zb_ch_page',17,'serial_string',bmi_params.bmi_fes_stim_params.port_wireless)
 wStim  = wireless_stim(stim_params);
 
         try
             % Switch to the folder that contains the calibration file
             cur_dir = pwd;
-            cd( params.bmi_fes_stim_params.path_cal_ws );
+            cd( bmi_params.bmi_fes_stim_params.path_cal_ws );
             
             % see how old the calibration file is. If it's over a week old,
             % make a new one
@@ -61,7 +61,7 @@ wStim  = wireless_stim(stim_params);
             % mode] ...)
             % this will work only if the bmi and bmi_stim folders are on
             % the path. HAHAHA
-            setup_wireless_stim_fes(wStim, params.bmi_fes_stim_params);
+            setup_wireless_stim_fes(wStim, bmi_params.bmi_fes_stim_params);
             
         % if something went wrong close communication with Central and the
         % stimulator and quit
