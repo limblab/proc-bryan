@@ -72,7 +72,7 @@ try
     
     bmi_params = bmi_params_defaults(bmi_params);
 catch ME
-    error(ME) % kick us out oif necessary
+    error(ME) % kick us out if necessary
 end
 
 %% Set up stim and plexon
@@ -83,47 +83,73 @@ end
 
 %% initialize visualization
 
-keepRunning = []; % this will be the handle for vizualization
+keepRunning = msgbox('Press ''ok'' to quit'); % this will be the handle for vizualization
 
 
 
 
 
-%% 
+%% Create folder for saving, create .csv files
+dd = datetime; % current date and time
+dd.Format = 'dd-MMM-uuuu_HH:mm'; % change how it displays
+dirName = ['.\',datestr(dd,30)];
+mkdir(cd,datestr(dd,30));
+
+spFile = fopen([dirName '\Spikes.csv'],'wt');
+spikeHeader = num2cell(bmi_params.neuronIDs,2);
+for ii = 1:length(spikeHeader)
+    spikeHeader{ii} = num2str(spikeHeader{ii});
+    spikeHeader{ii} = strrep(spikeHeader{ii},' ','_');
+end
+spikeHeader = strjoin(spikeHeader,',');
+fprintf(spFile,['Time,', spikeHeader, '\n']);
 
 
+predFile = fopen([dirName, '\EMG_Preds.csv'],'wt');
+predHeader = strjoin(bmi_params.bmi_fes_stim_params.muscles,',');
+fprintf(predFile,['Time,',predHeader,'\n']);
+
+
+stimFile = fopen([dirName, '\Stim.csv'],'wt');
+stimHeader = strjoin(bmi_params.bmi_fes_stim_params.EMG_to_stim_map(2,:),',');
+fprintf(stimFile,['Time,',stimHeader,'\n']);
+
+clear *Header dd dirName
 %% start loop
 
 
 tStart = tic;
+tLoopOld = toc;
+fRates = zeros(ceil(bmi_params.emg_decoder.fillen/bmi_params.emg_decoder.binsize),length(bmi_params.bmi_fes_stim_params
 while ishandle(keepRunning)
     
     
-    % wait necessary time for a 50 ms loop
+    %% wait necessary time for a 50 ms loop
     tLoopNew = toc;
     tLoop = tLoopNew - tLoopOld;
-    tLoopOld = tLoopNew;
     
-    if tLoop < ***binsize*** % change to StimParams field
-        pause(***binsize*** - tLoop); % make sure loop takes full binsize
-    elseif tLoop > ***binsize***
+    if tLoop < bmi_params.emg_decoder.binsize % change to StimParams field
+        pause(bmi_params.emg_decoder.binsize - tLoop); % make sure loop takes full binsize
+    elseif tLoop > bmi_params.emg_decoder.binsize
         warning('Slow loop time: %f',tLoop)
     end
+    tLoopOld = toc; % reset for this coming loop
+    
+    %% collect data from plexon, store in csv
+    fRates = [get_firing_rates(pRead,bmi_params); fRates(2:end-1,:)]; % a subfunction below to get the (cleaned) firing rates
+    fprintf(spFile,'%f',tLoopOld,fRates(1,:))
+    fprintf(spFile,'\n')
     
     
-    % collect data from plexon, store in csv
-    
-    
-    
-    % predict from plexon data, store in csv
-    
-    
-    
-    % convert prections to stimulus params, store in csv
+    %% predict from plexon data, store in csv
     
     
     
-    % send stimulus params to wStim
+    %% convert prections to stimulus params, store in csv
+    
+    
+    
+    %% send stimulus params to wStim
     
     
     
