@@ -52,7 +52,7 @@ function realtime_Wrapper(bmi_params)
 %   - Initial skeleton of code we can work from (KB)
 %   - Initial visualization of code (KB)
 %   - shamelessly copy old StimParams struct, adjust (KB)
-% 
+%   - Test and finish binning algorithm and artifact removal (BY)
 %
 % TODONE:
 %   - Comment framework to build code around
@@ -120,7 +120,7 @@ clear *Header dd dirName
 
 tStart = tic;
 tLoopOld = toc;
-fRates = zeros(ceil(bmi_params.emg_decoder.fillen/bmi_params.emg_decoder.binsize),length(bmi_params.bmi_fes_stim_params
+fRates = zeros(ceil(bmi_params.emg_decoder.fillen/bmi_params.emg_decoder.binsize),length(bmi_params.bmi_fes_stim_params));
 while ishandle(keepRunning)
     
     
@@ -136,7 +136,9 @@ while ishandle(keepRunning)
     tLoopOld = toc; % reset for this coming loop
     
     %% collect data from plexon, store in csv
-    fRates = [get_firing_rates(pRead,bmi_params); fRates(2:end-1,:)]; % a subfunction below to get the (cleaned) firing rates
+    [new_spikes, ts_old] = get_New_PlexData(pRead, ts_old, bmi_params);
+    fRates = [new_spikes'; fRates(1:end-1,:)];
+    %fRates = [get_firing_rates(pRead,bmi_params); fRates(2:end-1,:)]; % a subfunction below to get the (cleaned) firing rates
     fprintf(spFile,'%f',tLoopOld,fRates(1,:))
     fprintf(spFile,'\n')
     
@@ -157,61 +159,31 @@ while ishandle(keepRunning)
     
     
     
-    
-
-
-%Variable set-up
-bin_size = 0.05; % this will be in StimParams
-cur_ts = [];
-cur_bin_ts = 0;
-
-sp_bins = [];
-
 
 %Gets initial timestamp, will loop until it acquires 1
 %TODO: Remove this and come up with better way
 % KB: what is this supposed to do?
-while 1
-    [n,cur_ts] = PL_GetTS(pRead);   
-    if n
-        break;
-    end
-end
-cur_bin_ts = bin_size * floor(cur_ts(1,4) / bin_size);
+% BY: I'll probably get rid of it. Need to find a good way to get system
+% time from Plexon
+%while 1
+%    [n,cur_ts] = PL_GetTS(pRead);   
+%    if n
+%        break;
+%    end
+%end
+%cur_bin_ts = bin_size * floor(cur_ts(1,4) / bin_size);
 
 %pars = PL_GetPars(s) %Doesn't work over PlexNet
                       %Also returns incorrect adc rate sometimes? look into
 
-b = tic
-while toc(b)<5
-    [n, ts] = PL_GetTS(pRead); %Gets
-    if n
-        cur_ts = [cur_ts; ts]; %sorted by time (TODO: ensure this is always
-                               %true or add error checking)       
-    end
-    
-    % Collected enough for a bin, so bin it
-    if cur_ts(end,4)-cur_bin_ts > bin_size
-        %increment by only 1 bin size to ensure no bins are missed
-        %a = tic;
-        cur_bin_ts = cur_bin_ts + bin_size;
-        [nts, cur_bin] = bin_PlexNet(cur_ts,cur_bin_ts);
-        sp_bins = horzcat(sp_bins,cur_bin);
-        cur_ts = cur_ts(nts,:);        
-        %fprintf('Time: %f , Num: %d , Ratio: %e\n',toc(a),nts-1,(toc(a)/(nts-1)));
-    end
-end
 
+
+
+
+
+
+end
 
 %Close connection
 PL_Close(pRead);
 pRead = 0;
-
-
-
-
-
-
-
-
-end

@@ -18,12 +18,15 @@ s = PL_InitClient(0);
 if s == 0
    return
 end
-
+pause(0.05);
+res = zeros(1000,1);
 % get A/D data and plot it
-for i=1:10
-   [n, t, d] = PL_GetAD(s);
-   plot(d);
-   pause(1);
+for i=1:1000
+    tic;
+    [n, t] = PL_GetTS(s);
+    res(i) = t(end,4) - t(1,4);    
+    while(toc < 0.05)
+    end
 end
 
 % you need to call PL_Close(s) to close the connection
