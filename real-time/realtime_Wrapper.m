@@ -112,15 +112,27 @@ fprintf(predFile,['Time,',predHeader,'\n']);
 
 stimFile = fopen([dirName, '\Stim.csv'],'wt');
 stimHeader = strjoin(bmi_params.bmi_fes_stim_params.EMG_to_stim_map(2,:),',');
-fprintf(stimFile,['Time,',stimHeader,'\n']);
+if strcmp(bmi_params.animal,'Monkey')&(bmi_params.bmi_fes_stim_params.perc_catch_trials>0)
+    fprintf(stimFile,['Time,',stimHeader,',Catch\n']);
+else
+    fprintf(stimFile,['Time,',stimHeader,',Catch\n']);
+end
 
 clear *Header dd dirName
 %% start loop
 
-
-tStart = tic;
-tLoopOld = toc;
+loopCnt = 0; % loop counter for S&G -- might want to do some variety of catch later on.
+trialCnt = 0; % trial number for catch trials for the monkey. 
+tStart = tic; % start timer
+tLoopOld = toc; % initial loop timer 
 fRates = zeros(ceil(bmi_params.emg_decoder.fillen/bmi_params.emg_decoder.binsize),length(bmi_params.bmi_fes_stim_params));
+neuronDecoder = bmi_params.decoders.neuron_decoder; % load the neuron decoder into a separate structure because.
+catchTrialInd = randperm(100,bmi_params.bmi_fes_stim_params.perc_catch_trials); % which trials are going to be catch
+
+drawnow; % take care of anything waiting to be executed
+
+
+
 while ishandle(keepRunning)
     
     
@@ -131,28 +143,54 @@ while ishandle(keepRunning)
     if tLoop < bmi_params.emg_decoder.binsize % change to StimParams field
         pause(bmi_params.emg_decoder.binsize - tLoop); % make sure loop takes full binsize
     elseif tLoop > bmi_params.emg_decoder.binsize
-        warning('Slow loop time: %f',tLoop)
+        warning('Slow loop time: %f',tLoop) % throw a warning 
     end
-    tLoopOld = toc; % reset for this coming loop
+    tLoopOld = toc; % reset timer count
     
     %% collect data from plexon, store in csv
     [new_spikes, ts_old] = get_New_PlexData(pRead, ts_old, bmi_params);
     fRates = [new_spikes'; fRates(1:end-1,:)];
     %fRates = [get_firing_rates(pRead,bmi_params); fRates(2:end-1,:)]; % a subfunction below to get the (cleaned) firing rates
-    fprintf(spFile,'%f',tLoopOld,fRates(1,:))
+    fprintf(spFile,'%f',tLoopOld,new_spikes')
     fprintf(spFile,'\n')
     
     
     %% predict from plexon data, store in csv
+    emgPreds = [1 rowvec(fRates)']*neuronDecoder.H;
     
+    % implement static non-linearity
+    if isfield(neuronDecoder,P) % do we have non-static linearities
+        nonlinearity = zeros(1,length(emgPreds));
+        for ii = 1:length(emgPreds)
+            nonlinearity(ii) = polyval(neuronDecoder.P(:,ii),emgPreds(ii));
+        end
+        emgPreds = nonlinearity;
+    end
     
+    % save these into the csv
+    fprintf(predFile,'%f',tLoopOld,emgPreds);
+    fprintf(predFile,'\n');
     
-    %% convert prections to stimulus params, store in csv
+    %% convert predictions to stimulus params, store in csv
+    
+    % if we're going to do catch trials for the monkeys, we're gonna need
+    % to interact with the XPC. This will depend on whether we're using the
+    % same code base for both systems.
+    % -- insert here if needed --
+    
+    % Get the PW and amplitude
+    [stim_PW, stim_amp] = EMG_to_stim(emgPreds, bmi_params.bmi_fes_stim_params); % takes care of all of the mapping
+    
     
     
     
     %% send stimulus params to wStim
     
+    [stim_cmd, channel_list]    = stim_elect_mapping_wireless( data.stim_PW, ...
+                                    data.stim_amp, params.bmi_fes_stim_params );
+    for which_cmd = 1:length(stim_cmd)
+        handles.ws.set_stim(stim_cmd(which_cmd), channel_list);
+    end
     
     
 
@@ -179,10 +217,18 @@ while ishandle(keepRunning)
 
 
 
+    loopCnt = loopCnt + 1;
+
+
+end
+
+close_realtime_Wrapper
+
 
 
 
 end
+
 
 %Close connection
 PL_Close(pRead);
