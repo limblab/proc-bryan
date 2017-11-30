@@ -18,14 +18,14 @@ function realtime_Wrapper(bmi_params)
 %
 %
 % -- Inputs -- 
-% bmi_parmas        structure or name for file with stimulation params. 
+% bmi_params        structure or name for file with stimulation params. 
 %
 % -- Outputs --
 % None directly through the function, though it will store all relevant
 % recordings together
 %
 % 
-% Authors: Bryan Yoder, Kevin bodkin
+% Authors: Bryan Yoder, Kevin Bodkin
 
 
 
@@ -49,17 +49,15 @@ function realtime_Wrapper(bmi_params)
 % TODO:
 %   - Fix issues with PL_GetPars (BY)
 %   - preallocate ts list for speed (BY) // what does this mean? KB
-%   - Initial skeleton of code we can work from (KB)
 %   - Initial visualization of code (KB)
-%   - shamelessly copy old StimParams struct, adjust (KB)
 %   - Test and finish binning algorithm and artifact removal (BY)
 %
 % TODONE:
 %   - Comment framework to build code around
+%   - Initial skeleton of code we can work from (KB)
+%   - shamelessly copy old StimParams struct, adjust (KB)
 %
 %
-%
-% Author(s): Bryan Yoder, Kevin Bodkin
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -67,7 +65,7 @@ function realtime_Wrapper(bmi_params)
 % load StimParams, use defaults if not specified
 try
     if ~exist('bmi_params')
-        bmi_params = []; % this will be similar to the old defaultStimParams code
+        bmi_params = struct(); % set up an empty structure to pass in
     end
     
     bmi_params = bmi_params_defaults(bmi_params);
@@ -83,9 +81,12 @@ end
 
 %% initialize visualization
 
-keepRunning = msgbox('Press ''ok'' to quit'); % this will be the handle for vizualization
+keepRunning = msgbox('Press ''ok'' to quit'); % handle to end stimulation
 
-
+if bmi_params.display_plots
+    stimFig = figure('Name','FES Commands'); % setup visualization of stimulation
+    stimFig = stim_fig(stimFig,[],[],bmi_params.bmi_fes_stim_params,'init'); % using the old stim fig code
+end
 
 
 
@@ -95,95 +96,124 @@ dd.Format = 'dd-MMM-uuuu_HH:mm'; % change how it displays
 dirName = ['.\',datestr(dd,30)];
 mkdir(cd,datestr(dd,30));
 
-spFile = fopen([dirName '\Spikes.csv'],'wt');
-spikeHeader = num2cell(bmi_params.neuronIDs,2);
-for ii = 1:length(spikeHeader)
-    spikeHeader{ii} = num2str(spikeHeader{ii});
-    spikeHeader{ii} = strrep(spikeHeader{ii},' ','_');
-end
-spikeHeader = strjoin(spikeHeader,',');
-fprintf(spFile,['Time,', spikeHeader, '\n']);
-
-
-predFile = fopen([dirName, '\EMG_Preds.csv'],'wt');
-predHeader = strjoin(bmi_params.bmi_fes_stim_params.muscles,',');
-fprintf(predFile,['Time,',predHeader,'\n']);
-
-
-stimFile = fopen([dirName, '\Stim.csv'],'wt');
-stimHeader = strjoin(bmi_params.bmi_fes_stim_params.EMG_to_stim_map(2,:),',');
-fprintf(stimFile,['Time,',stimHeader,'\n']);
+spFile = [dirName '\Spikes.csv'];
+predFile = [dirName, '\EMG_Preds.csv'];
+stimFile = [dirName, '\Stim.csv'];
+% stimHeader = strjoin(bmi_params.bmi_fes_stim_params.EMG_to_stim_map(2,:),',');
+% if strcmp(bmi_params.animal,'Monkey')&(bmi_params.bmi_fes_stim_params.perc_catch_trials>0)
+%     fprintf(stimFile,['Time,',stimHeader,',Catch\n']);
+% else
+%     fprintf(stimFile,['Time,',stimHeader,',Catch\n']);
+% end
 
 clear *Header dd dirName
 %% start loop
 
-
-tStart = tic;
-tLoopOld = toc;
+loopCnt = 0; % loop counter for S&G -- might want to do some variety of catch later on.
+trialCnt = 0; % trial number for catch trials for the monkey. 
+tStart = tic; % start timer
+tLoopOld = toc; % initial loop timer 
 fRates = zeros(ceil(bmi_params.emg_decoder.fillen/bmi_params.emg_decoder.binsize),length(bmi_params.bmi_fes_stim_params));
+neuronDecoder = bmi_params.decoders.neuron_decoder; % load the neuron decoder into a separate structure because.
+catchTrialInd = randperm(100,bmi_params.bmi_fes_stim_params.perc_catch_trials); % which trials are going to be catch
+binsize = bmi_params.emg_decoder.binsize; % because I'm lazy and don't feel like always typing this.
+
+
+drawnow; % take care of anything waiting to be executed, empty thread
+
+stimAmp = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
+stimPW = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
+
+
 while ishandle(keepRunning)
     
     
     %% wait necessary time for a 50 ms loop
-    tLoopNew = toc;
+    tLoopNew = toc(tStart);
     tLoop = tLoopNew - tLoopOld;
     
-    if tLoop < bmi_params.emg_decoder.binsize % change to StimParams field
-        pause(bmi_params.emg_decoder.binsize - tLoop); % make sure loop takes full binsize
-    elseif tLoop > bmi_params.emg_decoder.binsize
-        warning('Slow loop time: %f',tLoop)
+    if tLoop+.02 < binsize % if we have more than 20 ms extra time, update the stim figure
+        stimFig = stim_fig(stimFig,stimPW,stimAmp,bmi_params.bmi_fes_stim_params,'exec')
+        tWaitStart = tic; % Wait loop time
+        while (toc(tWaitStart) + tLoop) < binsize
+            print('');    % empty process
+        end
+    elseif tLoop < binsize 
+        tWaitStart = tic;
+        while toc(tWaitStart) < tLoop
+            print('');    % empty process
+        end
+    elseif tLoop > binsize
+        warning('Slow loop time: %f',tLoop) % throw a warning 
     end
-    tLoopOld = toc; % reset for this coming loop
+    
+    tLoopOld = toc(tStart); % reset timer count
     
     %% collect data from plexon, store in csv
     [new_spikes, ts_old] = get_New_PlexData(pRead, ts_old, bmi_params);
     fRates = [new_spikes'; fRates(1:end-1,:)];
-    %fRates = [get_firing_rates(pRead,bmi_params); fRates(2:end-1,:)]; % a subfunction below to get the (cleaned) firing rates
-    fprintf(spFile,'%f',tLoopOld,fRates(1,:))
+    fprintf(spFile,'%f',tLoopOld,new_spikes')
     fprintf(spFile,'\n')
     
     
     %% predict from plexon data, store in csv
+    emgPreds = [1 rowvec(fRates)']*neuronDecoder.H;
     
+    % implement static non-linearity
+    if isfield(neuronDecoder,P) % do we have non-static linearities
+        nonlinearity = zeros(1,length(emgPreds));
+        for ii = 1:length(emgPreds)
+            nonlinearity(ii) = polyval(neuronDecoder.P(:,ii),emgPreds(ii));
+        end
+        emgPreds = nonlinearity;
+    end
     
+    % save these into the csv -- change to save()
+%     save(predFile,
+%     fprintf(predFile,'%f',tLoopOld,emgPreds);
+%     fprintf(predFile,'\n');
     
-    %% convert prections to stimulus params, store in csv
+    %% convert predictions to stimulus params, store in csv
+    
+    % if we're going to do catch trials for the monkeys, we're gonna need
+    % to interact with the XPC. This will depend on whether we're using the
+    % same code base for both systems.
+    % -- insert here if needed --
+    
+    % Get the PW and amplitude
+    [stimPW, stimAmp] = EMG_to_stim(emgPreds, bmi_params.bmi_fes_stim_params); % takes care of all of the mapping
+    
     
     
     
     %% send stimulus params to wStim
     
+    [stimCmd, channelList]    = stim_elect_mapping_wireless( stimPW, ...
+                                    stimAmp, params.bmi_fes_stim_params );
+    for whichCmd = 1:length(stimCmd)
+        handles.ws.set_stim(stimCmd(whichCmd), channelList);
+    end
     
     
-
-    
-    
-    
-
-%Gets initial timestamp, will loop until it acquires 1
-%TODO: Remove this and come up with better way
-% KB: what is this supposed to do?
-% BY: I'll probably get rid of it. Need to find a good way to get system
-% time from Plexon
-%while 1
-%    [n,cur_ts] = PL_GetTS(pRead);   
-%    if n
-%        break;
-%    end
-%end
-%cur_bin_ts = bin_size * floor(cur_ts(1,4) / bin_size);
-
-%pars = PL_GetPars(s) %Doesn't work over PlexNet
-                      %Also returns incorrect adc rate sometimes? look into
-
-
-
-
-
+%% 
+    loopCnt = loopCnt + 1;
 
 
 end
 
+close_realtime_Wrapper(pRead,wStim);
+
+end
+
+
+
+function close_realtime_Wrapper(pRead,wStim)
+    
 %Close connection
 PL_Close(pRead);
-pRead = 0;
+wStim.delete();
+
+
+clear pRead wStim
+
+end
