@@ -24,6 +24,8 @@ for i = 1:length(spikes)
     end
 end
 
+
+
 %Get rid of ts that are artifact
 for i = 1:length(artifacts)
     spikes(artifacts) = [];    
