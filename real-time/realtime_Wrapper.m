@@ -48,6 +48,7 @@ function realtime_Wrapper(bmi_params)
 %
 % TODO:
 %   - Fix issues with PL_GetPars (BY)
+%                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
 %   - preallocate ts list for speed (BY) // what does this mean? KB
 %   - Initial visualization of code (KB)
 %   - Test and finish binning algorithm and artifact removal (BY)
@@ -99,23 +100,18 @@ mkdir(cd,datestr(dd,30));
 spFile = [dirName '\Spikes.csv'];
 predFile = [dirName, '\EMG_Preds.csv'];
 stimFile = [dirName, '\Stim.csv'];
-% stimHeader = strjoin(bmi_params.bmi_fes_stim_params.EMG_to_stim_map(2,:),',');
-% if strcmp(bmi_params.animal,'Monkey')&(bmi_params.bmi_fes_stim_params.perc_catch_trials>0)
-%     fprintf(stimFile,['Time,',stimHeader,',Catch\n']);
-% else
-%     fprintf(stimFile,['Time,',stimHeader,',Catch\n']);
-% end
+
 
 clear *Header dd dirName
 %% start loop
 
 loopCnt = 0; % loop counter for S&G -- might want to do some variety of catch later on.
-trialCnt = 0; % trial number for catch trials for the monkey. 
+% trialCnt = 0; % trial number for catch trials for the monkey. 
 tStart = tic; % start timer
 tLoopOld = toc; % initial loop timer 
-fRates = zeros(ceil(bmi_params.emg_decoder.fillen/bmi_params.emg_decoder.binsize),length(bmi_params.bmi_fes_stim_params));
+fRates = zeros(bmi_params.n_lag,length(bmi_params.bmi_fes_stim_params));
 neuronDecoder = bmi_params.decoders.neuron_decoder; % load the neuron decoder into a separate structure because.
-catchTrialInd = randperm(100,bmi_params.bmi_fes_stim_params.perc_catch_trials); % which trials are going to be catch
+% catchTrialInd = randperm(100,bmi_params.bmi_fes_stim_params.perc_catch_trials); % which trials are going to be catch
 binsize = bmi_params.emg_decoder.binsize; % because I'm lazy and don't feel like always typing this.
 
 
@@ -124,7 +120,7 @@ drawnow; % take care of anything waiting to be executed, empty thread
 stimAmp = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
 stimPW = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
 
-
+try
 while ishandle(keepRunning)
     
     
@@ -132,7 +128,7 @@ while ishandle(keepRunning)
     tLoopNew = toc(tStart);
     tLoop = tLoopNew - tLoopOld;
     
-    if tLoop+.02 < binsize % if we have more than 20 ms extra time, update the stim figure
+    if ((tLoop+.02) < binsize) && bmi_params.display_plots % if we have more than 20 ms extra time, update the stim figure
         stimFig = stim_fig(stimFig,stimPW,stimAmp,bmi_params.bmi_fes_stim_params,'exec')
         tWaitStart = tic; % Wait loop time
         while (toc(tWaitStart) + tLoop) < binsize
@@ -150,10 +146,10 @@ while ishandle(keepRunning)
     tLoopOld = toc(tStart); % reset timer count
     
     %% collect data from plexon, store in csv
-    [new_spikes, ts_old] = get_New_PlexData(pRead, ts_old, bmi_params);
+    new_spikes = get_New_PlexData(pRead, bmi_params);
     fRates = [new_spikes'; fRates(1:end-1,:)];
-    fprintf(spFile,'%f',tLoopOld,new_spikes')
-    fprintf(spFile,'\n')
+    
+    save(spFile,[tLoopOld,new_spikes'],'-ascii','append')
     
     
     %% predict from plexon data, store in csv
@@ -169,9 +165,7 @@ while ishandle(keepRunning)
     end
     
     % save these into the csv -- change to save()
-%     save(predFile,
-%     fprintf(predFile,'%f',tLoopOld,emgPreds);
-%     fprintf(predFile,'\n');
+    save(predFile,[tLoopOld,emgPreds],'-ascii','append')
     
     %% convert predictions to stimulus params, store in csv
     
@@ -183,7 +177,11 @@ while ishandle(keepRunning)
     % Get the PW and amplitude
     [stimPW, stimAmp] = EMG_to_stim(emgPreds, bmi_params.bmi_fes_stim_params); % takes care of all of the mapping
     
-    
+    if strcmp(bmi_params.bmi_fes_stim_params.mode,'PW_modulation')
+        save(stimFile,[toc(tStart),stimPW],'-ascii','append');
+    else
+        save(stimFile,[toc(tStart),stimAmp],'-ascii','append');
+    end
     
     
     %% send stimulus params to wStim
@@ -191,29 +189,34 @@ while ishandle(keepRunning)
     [stimCmd, channelList]    = stim_elect_mapping_wireless( stimPW, ...
                                     stimAmp, params.bmi_fes_stim_params );
     for whichCmd = 1:length(stimCmd)
-        handles.ws.set_stim(stimCmd(whichCmd), channelList);
+        wStim.set_stim(stimCmd(whichCmd), channelList);
     end
     
     
-%% 
+%% update loop count, 
     loopCnt = loopCnt + 1;
 
 
 end
 
-close_realtime_Wrapper(pRead,wStim);
+catch
+    warning('Could not run stimulation loop, shutting down')
+end
+
+close_realtime_Wrapper(pRead,wStim,stimFig);
 
 end
 
 
+%%
+function close_realtime_Wrapper(pRead,wStim,stimFig)
 
-function close_realtime_Wrapper(pRead,wStim)
-    
+close stimFig
+
+
 %Close connection
 PL_Close(pRead);
 wStim.delete();
 
-
-clear pRead wStim
 
 end
