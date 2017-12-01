@@ -18,13 +18,17 @@ s = PL_InitClient(0);
 if s == 0
    return
 end
+
+[~, ~, ~] = PL_GetAD(s);
 pause(0.05);
-res = zeros(1000,1);
+res = [];
+loop_times(1000) = 0; 
 % get A/D data and plot it
-for i=1:1000
+for i = 1:1000
     tic;
-    [n, t] = PL_GetTS(s);
-    res(i) = t(end,4) - t(1,4);    
+    [n, t, d] = PL_GetAD(s); 
+    loop_times(i) = toc;
+    res(end + 1) = n/2000;   
     while(toc < 0.05)
     end
 end
