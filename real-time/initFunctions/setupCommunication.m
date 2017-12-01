@@ -35,10 +35,10 @@ wStim  = wireless_stim(stim_params);
             % see how old the calibration file is. If it's over a week old,
             % make a new one
             D = dir;
-            cmp = strcmpi({D.name},wStim.trim_cal_fname);
-            if (now-D(cmp).datenum)>7
+            cmp = strcmpi({D.name},'trim_cal_data.mat');
+            if any(cmp) && (now-D(cmp).datenum)>7
                 warning('Trim calibration file is over a week old. Building new one');
-                recycle(D(cmp).name); % toss old trim_cal in the recycling
+                delete(D(cmp).name); % toss old trim_cal in the recycling
             end
              
             
@@ -53,7 +53,7 @@ wStim  = wireless_stim(stim_params);
                 % retrieve & display settings from all channels
                 channel_list    = 1:wStim.num_channels;
                 commands        = wStim.get_stim(channel_list);
-                wStim.display_command_list(commands, channel_list);
+%                 wStim.display_command_list(commands, channel_list);
             end
             
             % set up the stimulation params that will not be modulated
@@ -66,8 +66,9 @@ wStim  = wireless_stim(stim_params);
         % if something went wrong close communication with Central and the
         % stimulator and quit
         catch ME
-            delete(wStim);
-            cbmex('close');
+%             delete(wStim);
+            cd(cur_dir)
+%             cbmex('close');
             rethrow(ME);
         end
 end

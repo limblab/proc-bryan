@@ -71,13 +71,17 @@ try
     
     bmi_params = bmi_params_defaults(bmi_params);
 catch ME
+
     error(ME) % kick us out if necessary
 end
 
 %% Set up stim and plexon
 % handles for plexon and Ripple objects
-[wStim,pRead] = setupCommunication(bmi_params);
-
+try
+    [wStim,pRead] = setupCommunication(bmi_params);
+catch
+    close_realtime_Wrapper(pRead,wStim,-1)
+end
 
 
 %% initialize visualization
@@ -85,7 +89,7 @@ end
 keepRunning = msgbox('Press ''ok'' to quit'); % handle to end stimulation
 
 if bmi_params.display_plots
-    stimFig = figure('Name','FES Commands'); % setup visualization of stimulation
+    stimFig.fh = figure('Name','FES Commands'); % setup visualization of stimulation
     stimFig = stim_fig(stimFig,[],[],bmi_params.bmi_fes_stim_params,'init'); % using the old stim fig code
 end
 
@@ -94,12 +98,14 @@ end
 %% Create folder for saving, create .csv files
 dd = datetime; % current date and time
 dd.Format = 'dd-MMM-uuuu_HH:mm'; % change how it displays
-dirName = ['.\',datestr(dd,30)];
-mkdir(cd,datestr(dd,30));
+dirName = [bmi_params.save_dir,'\',bmi_params.save_name,'_',datestr(dd,30)];
+if ~exist(dirName)
+    mkdir(dirName);
+end
 
-spFile = [dirName '\Spikes.csv'];
-predFile = [dirName, '\EMG_Preds.csv'];
-stimFile = [dirName, '\Stim.csv'];
+spFile = [dirName '\Spikes.txt'];
+predFile = [dirName, '\EMG_Preds.txt'];
+stimFile = [dirName, '\Stim.txt'];
 
 
 clear *Header dd dirName
@@ -108,9 +114,9 @@ clear *Header dd dirName
 loopCnt = 0; % loop counter for S&G -- might want to do some variety of catch later on.
 % trialCnt = 0; % trial number for catch trials for the monkey. 
 tStart = tic; % start timer
-tLoopOld = toc; % initial loop timer 
-fRates = zeros(bmi_params.n_lag,length(bmi_params.bmi_fes_stim_params));
-neuronDecoder = bmi_params.decoders.neuron_decoder; % load the neuron decoder into a separate structure because.
+tLoopOld = toc(tStart); % initial loop timer 
+fRates = zeros(bmi_params.n_lag,bmi_params.n_neurons);
+neuronDecoder = bmi_params.neuron_decoder; % load the neuron decoder into a separate structure because.
 % catchTrialInd = randperm(100,bmi_params.bmi_fes_stim_params.perc_catch_trials); % which trials are going to be catch
 binsize = bmi_params.emg_decoder.binsize; % because I'm lazy and don't feel like always typing this.
 
@@ -120,7 +126,7 @@ drawnow; % take care of anything waiting to be executed, empty thread
 stimAmp = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
 stimPW = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
 
-try
+% try
 while ishandle(keepRunning)
     
     
@@ -129,15 +135,15 @@ while ishandle(keepRunning)
     tLoop = tLoopNew - tLoopOld;
     
     if ((tLoop+.02) < binsize) && bmi_params.display_plots % if we have more than 20 ms extra time, update the stim figure
-        stimFig = stim_fig(stimFig,stimPW,stimAmp,bmi_params.bmi_fes_stim_params,'exec')
+        stimFig = stim_fig(stimFig,stimPW,stimAmp,bmi_params.bmi_fes_stim_params,'exec');
         tWaitStart = tic; % Wait loop time
         while (toc(tWaitStart) + tLoop) < binsize
-            print('');    % empty process
+            drawnow;    % empty process
         end
     elseif tLoop < binsize 
         tWaitStart = tic;
         while toc(tWaitStart) < tLoop
-            print('');    % empty process
+            drawnow;    % empty process
         end
     elseif tLoop > binsize
         warning('Slow loop time: %f',tLoop) % throw a warning 
@@ -147,16 +153,17 @@ while ishandle(keepRunning)
     
     %% collect data from plexon, store in csv
     new_spikes = get_New_PlexData(pRead, bmi_params);
-    fRates = [new_spikes'; fRates(1:end-1,:)];
+    fRates = [new_spikes; fRates(1:end-1,:)];
     
-    save(spFile,[tLoopOld,new_spikes'],'-ascii','append')
+    tempdata = [tLoopOld,new_spikes];
+    save(spFile,'tempdata','-ascii','-tabs','-append')
     
     
     %% predict from plexon data, store in csv
-    emgPreds = [1 rowvec(fRates)']*neuronDecoder.H;
+    emgPreds = [1 fRates(:)']*neuronDecoder.H;
     
     % implement static non-linearity
-    if isfield(neuronDecoder,P) % do we have non-static linearities
+    if isfield(neuronDecoder,'P') % do we have non-static linearities
         nonlinearity = zeros(1,length(emgPreds));
         for ii = 1:length(emgPreds)
             nonlinearity(ii) = polyval(neuronDecoder.P(:,ii),emgPreds(ii));
@@ -165,7 +172,8 @@ while ishandle(keepRunning)
     end
     
     % save these into the csv -- change to save()
-    save(predFile,[tLoopOld,emgPreds],'-ascii','append')
+    tempdata = [tLoopOld,emgPreds];
+    save(predFile,'tempdata','-ascii','-tabs','-append')
     
     %% convert predictions to stimulus params, store in csv
     
@@ -178,16 +186,18 @@ while ishandle(keepRunning)
     [stimPW, stimAmp] = EMG_to_stim(emgPreds, bmi_params.bmi_fes_stim_params); % takes care of all of the mapping
     
     if strcmp(bmi_params.bmi_fes_stim_params.mode,'PW_modulation')
-        save(stimFile,[toc(tStart),stimPW],'-ascii','append');
+        tempdata = [toc(tStart),stimPW];
+        save(stimFile,'tempdata','-ascii','-tabs','-append');
     else
-        save(stimFile,[toc(tStart),stimAmp],'-ascii','append');
+        tempdata = [toc(tStart),stimAmp];
+        save(stimFile,'tempdata','-ascii','-tabs','-append');
     end
     
     
     %% send stimulus params to wStim
     
     [stimCmd, channelList]    = stim_elect_mapping_wireless( stimPW, ...
-                                    stimAmp, params.bmi_fes_stim_params );
+                                    stimAmp, bmi_params.bmi_fes_stim_params );
     for whichCmd = 1:length(stimCmd)
         wStim.set_stim(stimCmd(whichCmd), channelList);
     end
@@ -199,9 +209,9 @@ while ishandle(keepRunning)
 
 end
 
-catch
-    warning('Could not run stimulation loop, shutting down')
-end
+% catch
+%     warning('Could not run stimulation loop, shutting down')
+% end
 
 close_realtime_Wrapper(pRead,wStim,stimFig);
 
@@ -211,12 +221,14 @@ end
 %%
 function close_realtime_Wrapper(pRead,wStim,stimFig)
 
-close stimFig
+close(stimFig.fh)
 
 
 %Close connection
 PL_Close(pRead);
 wStim.delete();
+fclose(instrfind);
 
+'Exited Properly'
 
 end
