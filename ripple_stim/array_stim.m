@@ -1,4 +1,4 @@
-function array_stim(current_array, sending_freq, stim_freq, sampled_freq, stretch_factor, pw, channels, repeats, muscle_names, pause_time, com_port)
+ function array_stim(current_array, sending_freq, stim_freq, sampled_freq, stretch_factor, pw, channels, repeats, muscle_names, pause_time, com_port)
 %current_array should be in the form of a matrix of arrays that each have
 %averaged, filtered EMG data to be sent to the corresponding channel
 %pw: in ms, freqs: in hz, currents in current_array: in mA (mA and ms will
@@ -13,12 +13,12 @@ function array_stim(current_array, sending_freq, stim_freq, sampled_freq, stretc
 %necessarily show up
 
 colors = {[204 0 0], [255 125 37], [153 84 255],  [106 212 0], [0 102 51], [0 171 205], [0 0 153], [102 0 159], [64 64 64], [255 51 153], [253 203 0]};
-
+ 
 for i=1:size(current_array, 2)
     conv_fact = stretch_factor*sending_freq; %this will lead to a slight "stretching" effect of the step over time
     x = 1/sampled_freq:1/sampled_freq:length(current_array{i})/sampled_freq;
     xq = 1/conv_fact:1/conv_fact:length(current_array{i})/sampled_freq;
-    ds_array{i} = interp1(x, current_array{i}, xq);
+    ds_array{i} = interp1(x, current_array{i}, xq, 'linear', 'extrap');
 %     hold on;
 %     figure(1); hold on;
 %     plot(x, current_array{i})
@@ -98,6 +98,15 @@ if length(channels)>7
 else
     ws.set_stim(command, channels);
 end
+
+% for i = channels
+%     command{1} = struct('Freq', stim_freq, ...        % Hz
+%         'CathDur', pw(i)*1000, ...    % us
+%         'AnodDur', pw(i)*1000 ...    % us
+%         );
+%     ws.set_stim(command, i);
+%     
+% end
 
 ws.set_Run(ws.run_cont, channels);
 
