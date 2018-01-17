@@ -72,16 +72,16 @@ ws.set_Run(ws.run_stop, channels);
 
 %TODO: check this
 %send timing pulse
-command{1} = struct('CathDur', 1000, ...    % us
-    'AnodDur', 1000, ...    % us
-    'CathAmp', 2000+32768, ... %uA
-    'AnodAmp', 32768-2000, ... %uA
-    'TL', 10, ... %ms
-    'Freq', 1, ... %Hz
-    'Run', ws.run_once ...
-    );
-ws.set_stim(command, 16);
-ws.set_Run(ws.run_once_go)
+% command{1} = struct('CathDur', 1000, ...    % us
+%     'AnodDur', 1000, ...    % us
+%     'CathAmp', 2000+32768, ... %uA
+%     'AnodAmp', 32768-2000, ... %uA
+%     'TL', 10, ... %ms
+%     'Freq', 1, ... %Hz
+%     'Run', ws.run_once ...
+%     );
+% ws.set_stim(command, 16);
+% ws.set_Run(ws.run_once_go)
 pause(2); %wait for the Vicon to be activated
 %TODO: add vicon activation! will be easy
 
