@@ -27,12 +27,12 @@ end
 
 
 %Get rid of ts that are artifact
-for i = 1:length(artifacts)
-    spikes(artifacts) = [];    
+for i = length(artifacts):-1:1
+    spikes(artifacts(i),:) = [];    
 end
 
 %Artifacts output
-if params.debug > 0 && length(artifacts) > 0
+if length(artifacts) > 0
     disp([num2str(length(artifacts)) ' artifacts in bin'])    
 end
 
