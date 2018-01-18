@@ -24,7 +24,7 @@ pause(0.05);
 
 %% Ripple        
 
-stim_params = struct('dbg_lvl',1,'comm_timeout_ms',-1,'blocking',true,'zb_ch_page',17,'serial_string',bmi_params.bmi_fes_stim_params.port_wireless)
+stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',false,'zb_ch_page',2,'serial_string',bmi_params.bmi_fes_stim_params.port_wireless)
 wStim  = wireless_stim(stim_params);
 
         try
@@ -63,12 +63,9 @@ wStim  = wireless_stim(stim_params);
             % the path. HAHAHA
             setup_wireless_stim_fes(wStim, bmi_params.bmi_fes_stim_params);
             
-        % if something went wrong close communication with Central and the
-        % stimulator and quit
+        % if something went wrong close communication and quit
         catch ME
-%             delete(wStim);
             cd(cur_dir)
-%             cbmex('close');
             rethrow(ME);
         end
 end

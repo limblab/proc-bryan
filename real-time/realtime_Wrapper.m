@@ -103,10 +103,13 @@ if ~exist(dirName)
     mkdir(dirName);
 end
 
-spFile = [dirName '\Spikes.txt'];
-predFile = [dirName, '\EMG_Preds.txt'];
-stimFile = [dirName, '\Stim.txt'];
+spFile = [dirName '\Spikes.stm'];
+predFile = [dirName, '\EMG_Preds.stm'];
+stimFile = [dirName, '\Stim.stm'];
 
+spPointer = fopen(spFile,'w');
+predPointer = fopen(predFile,'w');
+stimPointer = fopen(stimFile,'w');
 
 clear *Header dd dirName
 %% start loop
@@ -115,8 +118,10 @@ loopCnt = 0; % loop counter for S&G -- might want to do some variety of catch la
 % trialCnt = 0; % trial number for catch trials for the monkey. 
 tStart = tic; % start timer
 tLoopOld = toc(tStart); % initial loop timer 
-fRates = zeros(bmi_params.n_lag,bmi_params.n_neurons);
-neuronDecoder = bmi_params.neuron_decoder; % load the neuron decoder into a separate structure because.
+load(bmi_params.neuron_decoder); % load the neuron decoder into a separate structure because.
+% load('C:\Users\bly0753\Downloads\N8_171219_decoderModel.mat');
+neuronDecoder = model;
+clear model;
 % catchTrialInd = randperm(100,bmi_params.bmi_fes_stim_params.perc_catch_trials); % which trials are going to be catch
 binsize = bmi_params.emg_decoder.binsize; % because I'm lazy and don't feel like always typing this.
 
@@ -125,6 +130,9 @@ drawnow; % take care of anything waiting to be executed, empty thread
 
 stimAmp = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
 stimPW = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
+
+
+fRates = zeros(neuronDecoder.fillen/neuronDecoder.binsize,length(neuronDecoder.neuronIDs));
 
 % try
 while ishandle(keepRunning)
@@ -156,7 +164,8 @@ while ishandle(keepRunning)
     fRates = [new_spikes; fRates(1:end-1,:)];
     
     tempdata = [tLoopOld,new_spikes];
-    save(spFile,'tempdata','-ascii','-tabs','-append')
+    fwrite(spPointer,tempdata,'double');
+%     save(spFile,'tempdata','-ascii','-tabs','-append')
     
     
     %% predict from plexon data, store in csv
@@ -173,7 +182,8 @@ while ishandle(keepRunning)
     
     % save these into the csv -- change to save()
     tempdata = [tLoopOld,emgPreds];
-    save(predFile,'tempdata','-ascii','-tabs','-append')
+    fwrite(predPointer,tempdata,'double');
+%     save(predFile,'tempdata','-ascii','-tabs','-append')
     
     %% convert predictions to stimulus params, store in csv
     
@@ -187,10 +197,12 @@ while ishandle(keepRunning)
     
     if strcmp(bmi_params.bmi_fes_stim_params.mode,'PW_modulation')
         tempdata = [toc(tStart),stimPW];
-        save(stimFile,'tempdata','-ascii','-tabs','-append');
+        fwrite(stimPointer,tempdata,'double');
+%         save(stimFile,'tempdata','-ascii','-tabs','-append');
     else
         tempdata = [toc(tStart),stimAmp];
-        save(stimFile,'tempdata','-ascii','-tabs','-append');
+        fwrite(stimPointer,tempdata,'double');
+%         save(stimFile,'tempdata','-ascii','-tabs','-append');
     end
     
     
@@ -213,16 +225,18 @@ end
 %     warning('Could not run stimulation loop, shutting down')
 % end
 
-close_realtime_Wrapper(pRead,wStim,stimFig);
+close_realtime_Wrapper(pRead,wStim,stimFig,stimPointer,predPointer,spPointer);
 
 end
 
 
 %%
-function close_realtime_Wrapper(pRead,wStim,stimFig)
+function close_realtime_Wrapper(pRead,wStim,stimFig,stimPointer,predPointer,spPointer)
 
 close(stimFig.fh)
-
+fclose(stimPointer);
+fclose(predPointer);
+fclose(spPointer);
 
 %Close connection
 PL_Close(pRead);

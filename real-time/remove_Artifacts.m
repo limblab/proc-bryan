@@ -11,7 +11,7 @@ reject_bin_size     = 0.001;
 % 'max_nbr_spikes'
 artifacts = [];
 
-for i = 1:length(spikes)
+for i = 1:size(spikes,1)
     %Check if artifact already was recorded
     if ismember(i,artifacts)
         continue; 
