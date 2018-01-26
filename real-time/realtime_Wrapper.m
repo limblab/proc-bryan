@@ -10,11 +10,10 @@ function realtime_Wrapper(bmi_params)
 % respective function for more information) then apply it to real-time
 % recordings from the plexon, then send those to the stimulator. It
 % requires an input of StimParams, which can either be a matlab structure
-% or a file of the appropriate variety *** TO BE DEFINED - MAYBE XML OR
-% CSV? ***
+% or a mat file containing the correct structure
 %
 % Once recording has finished the function will collect all of the relevant
-% files into a single .zip(?) file in the directory defined in StimParams
+% files into a single .mat file in the directory defined in StimParams
 %
 %
 % -- Inputs -- 
@@ -35,28 +34,20 @@ function realtime_Wrapper(bmi_params)
 % LFPs and spike timestamps, and stimulate.
 %
 % Comments: 
-% Let's put all of the initialization code in a subfunction --
-%   IE have a separate function take care of opening the plexon and
-%   WirelessStim objects - remember, this is supposed to be a wrapper
+%   I've set up the closing function to open all of the binary files and
+%   re-store the data and parameters as .mat file. Should we delete the
+%   binary files afterwards?
 %
-%   Also, I'm thinking we should use the old runBMIFES code as much as we
-%   can -- for the time being I'm just going to use their bmi_params and
-%   stim_params structures and initialization code
 %
 % TIPS:
 %
 %
 % TODO:
 %   - Fix issues with PL_GetPars (BY)
-%                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+%   - Start external plexon recording automatically (KB)
 %   - preallocate ts list for speed (BY) // what does this mean? KB
-%   - Initial visualization of code (KB)
-%   - Test and finish binning algorithm and artifact removal (BY)
+%   - Rewrite the initialization routine to remove errors (KB)
 %
-% TODONE:
-%   - Comment framework to build code around
-%   - Initial skeleton of code we can work from (KB)
-%   - shamelessly copy old StimParams struct, adjust (KB)
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -71,7 +62,6 @@ try
     
     bmi_params = bmi_params_defaults(bmi_params);
 catch ME
-
     error(ME) % kick us out if necessary
 end
 
@@ -80,7 +70,7 @@ end
 try
     [wStim,pRead] = setupCommunication(bmi_params);
 catch
-    close_realtime_Wrapper(pRead,wStim,-1)
+    close_realtime_Wrapper(pRead,wStim)
 end
 
 
@@ -102,6 +92,8 @@ dirName = [bmi_params.save_dir,'\',bmi_params.save_name,'_',datestr(dd,30)];
 if ~exist(dirName)
     mkdir(dirName);
 end
+
+bmi_params.save_dir = dirName;
 
 spFile = [dirName '\Spikes.stm'];
 predFile = [dirName, '\EMG_Preds.stm'];
@@ -134,11 +126,11 @@ stimPW = zeros(length(bmi_params.bmi_fes_stim_params.PW_min));
 
 fRates = zeros(neuronDecoder.fillen/neuronDecoder.binsize,length(neuronDecoder.neuronIDs));
 
-% try
+try
 while ishandle(keepRunning)
     
     
-    %% wait necessary time for a 50 ms loop
+    %% wait necessary time for loop
     tLoopNew = toc(tStart);
     tLoop = tLoopNew - tLoopOld;
     
@@ -198,11 +190,9 @@ while ishandle(keepRunning)
     if strcmp(bmi_params.bmi_fes_stim_params.mode,'PW_modulation')
         tempdata = [toc(tStart),stimPW];
         fwrite(stimPointer,tempdata,'double');
-%         save(stimFile,'tempdata','-ascii','-tabs','-append');
     else
         tempdata = [toc(tStart),stimAmp];
         fwrite(stimPointer,tempdata,'double');
-%         save(stimFile,'tempdata','-ascii','-tabs','-append');
     end
     
     
@@ -221,27 +211,89 @@ while ishandle(keepRunning)
 
 end
 
-% catch
-%     warning('Could not run stimulation loop, shutting down')
-% end
+catch ME
+    display(ME)
+    warning('Could not run stimulation loop, shutting down')
+end
 
-close_realtime_Wrapper(pRead,wStim,stimFig,stimPointer,predPointer,spPointer);
+close_realtime_Wrapper(pRead,wStim,bmi_params,stimFig,stimPointer,predPointer,spPointer);
 
 end
 
 
 %%
-function close_realtime_Wrapper(pRead,wStim,stimFig,stimPointer,predPointer,spPointer)
+function close_realtime_Wrapper(pRead,wStim,bmi_params,stimFig,stimPointer,predPointer,spPointer)
 
-close(stimFig.fh)
-fclose(stimPointer);
-fclose(predPointer);
-fclose(spPointer);
+if exist(stimFig)
+    close(stimFig.fh)
+end
+
+if exist('stimPointer') & exist('predPointer') & exist('spPointer')
+% get the filenames for the binary files, reopen them for reading, and
+% store all of the data into a matlab structure, then save it.
+
+    % get the names for the files, close the files
+    [stimFile,~,~,~] = fopen(stimPointer);
+    [predFile,~,~,~] = fopen(predPointer);
+    [spFile,~,~,~] = fopen(spPointer);
+    fclose(stimPointer);
+    fclose(predPointer);
+    fclose(spPointer);
+    
+    % all the information about the file size
+    spFileInfo = dir(spFile);
+    predFileInfo = dir(predFile);
+    stimFileInfo = dir(stimFile);
+    
+    % reopen the files for reading
+    stimPointer = fopen(stimFile,'r');
+    predPointer = fopen(predFile,'r');
+    spPointer = fopen(spFile,'r');
+    
+    % Organize all of the EMG data
+    EMGs = struct('Name',[],'BinLength',[],'Preds',[],'ts',[]);
+    EMGs.Name = bmi_params.bmi_fes_stim_params.muscles;
+    EMGs.BinLength = bmi_params.emg_decoder.binsize;
+    EMGs.Preds = fread(predPointer,predFileInfo.bytes,'double');
+    EMGs.Preds = reshape(EMGs.Preds,numel(bmi_params.bmi_fes_stim_params.muscles)+1,predFileInfo.bytes/numel(bmi_params.bmi_fes_stim_params.muscles)+1);
+    EMGs.ts = EMGs.Preds(:,1);
+    EMGs.Preds = EMGs.Preds(:,2:end);
+    
+    % Organize all the Stim Params
+    Stims = struct('Name',[],'Vals',[],'ts',[]);
+    Stims.Name = bmi_params.bmi_fes_stim_params.muscles;
+    Stims.Vals = fread(stimPointer,stimFileInfo.bytes,'double');
+    Stims.Vals = reshape(Stims.Vals,numel(bmi_params.bmi_fes_stim_params.muscles)+1,stimFileInfo.bytes/numel(bmi_params.bmi_fes_stim_params.muscles)+1);
+    Stims.ts = Stims.Vals(:,1);
+    Stims.Vals = Stims.Vals(:,2:end);
+    
+    % And finally, spikes
+    Spikes = struct('Electrode',[],'fRate',[],'ts',[]);
+    Spikes.Electrode = bmi_params.neuronIDs;
+    Spikes.fRate = fread(spPointer,spFileInfo.bytes,'double');
+    Spikes.fRate = reshape(Spike.fRate,bmi_params.n_neurons+1,spFileInfo.bytes/bmi_paramsn_neurons+1);
+    Spikes.ts = Spikes.fRate(:,1);
+    Spikes.fRate = Spikes.fRate(:,2:end);
+    
+    % Save all the info in a file together, and the stimulation params
+    storageFN = [bmi_params.save_dir, filesep, 'recordedData.mat'];
+    paramsFN = [bmi_params.save_dir, filesep, 'params'];
+    save(storageFN,'Spikes','Stims','EMGs');
+    save(paramsFN,'bmi_params');
+    
+    
+    % close all of the files
+    % (do we want to delete the binary files?)
+    fclose(spPointer); fclose(stimPointer); fclose(predPointer);
+    
+end
+    
 
 %Close connection
 PL_Close(pRead);
 wStim.delete();
 fclose(instrfind);
+instrreset % this seems to work better at purging the list of connected serial ports
 
 'Exited Properly'
 
