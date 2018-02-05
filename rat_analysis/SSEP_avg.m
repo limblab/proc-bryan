@@ -16,6 +16,7 @@ SPIKEtargetfile = 'E3_180117_SSEP3.plx'; %PS-2/.4
 %SPIKEtargetfile = '171218_E3_SSEP3.plx'; %PS-2/.4
 %SPIKEtargetfile = '171218_E3_SSEP4.plx'; %PS-.1/.4
 %SPIKEtargetfile = '171218_E3_SSEP5.plx'; %PS-.01/.4
+params = 'E3, 0.5mA, 0.2ms, 1.002Hz';
 
 
 fieldCh = [0:16];            % Specify the channels that contain field (LFP or EFP) recordings
@@ -63,6 +64,10 @@ end
 %         end
 %     end
 % end
+%test
+%stimind_t = spikedata(1).ts;
+
+
 
 % j=1;
 % for i = 1:length(stimind_t)-1
@@ -74,8 +79,9 @@ end
 
 % dat = left_dat;
 % stimind = find(abs(dat(:,17)) > .1); 
-stimind = round(stimind_t2 * 2000);
+stimind = round(stimind_t * 2000);
 
+%%
 dt = mean(diff(fielddata.timeframe));
 nstim = length(stimind)
 ind1 = 100;
@@ -89,9 +95,21 @@ for jj = 1:16
     hold on
     tind = (-ind1:ind2)/2;
     
-    plot(tind,mean(alltdat),'r');   
+    plot(tind,mean(alltdat),'r');
+    xlabel('ms');
+    ylabel('mV');
+    
     a = axis;
-    axis([tind([1 end]) a(3:4)])
+    if jj == 1
+        temp_y1 = a(3); 
+        temp_y2 = a(4);
+    end
+    if jj == 7 || jj == 9
+        axis([tind([1 end]) a(3:4)])
+    else
+        %axis([tind([1 end]) temp_y1, temp_y2])  
+        axis([tind([1 end]) -0.015, 0.015])
+    end    
 end
 subplot(4,4,1)
 title(strrep(SPIKEtargetfile,'_',' '))

@@ -11,7 +11,7 @@ reject_bin_size     = 0.001;
 % 'max_nbr_spikes'
 artifacts = [];
 
-for i = 1:length(spikes)
+for i = 1:size(spikes,1)
     %Check if artifact already was recorded
     if ismember(i,artifacts)
         continue; 
@@ -27,12 +27,12 @@ end
 
 
 %Get rid of ts that are artifact
-for i = 1:length(artifacts)
-    spikes(artifacts) = [];    
+for i = length(artifacts):-1:1
+    spikes(artifacts(i),:) = [];    
 end
 
 %Artifacts output
-if params.debug > 0 && length(artifacts) > 0
+if length(artifacts) > 0
     disp([num2str(length(artifacts)) ' artifacts in bin'])    
 end
 

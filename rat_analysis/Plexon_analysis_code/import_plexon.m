@@ -53,7 +53,7 @@ for i = 1:length(spike_ch)
             disp(['channel ' num2str(spike_ch(i)) ' has actual values so save them'])
         end
         spike_data(i).ts = ts;
-        spike_data(i).fr = histc(spike_data(i).ts,0:0.01:length(an_data.data(:,1))/an_data.freq(1)); %spike_data(i).fr(end) = [];
+        spike_data(i).fr = histc(spike_data(i).ts,0:0.05:length(an_data.data(:,1))/an_data.freq(1)); %spike_data(i).fr(end) = [];
         [spike_data(i).sfr] = smooth_gaussian(spike_data(i).fr,5);
         spike_data(i).ch = spike_ch(i);
     end

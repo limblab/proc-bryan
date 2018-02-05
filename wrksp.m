@@ -1,12 +1,59 @@
-[an_data,sp_data] = import_plexon('/media/samba/Basic_Sciences/Phys/L_MillerLab/data/Rats/Data_Analysis/plexon_data/plx_files/N5/N5_171016_noobstacles_EMG_1.plx')
-params.binSize = 0.05;
-params.data_ch = [0:15 32:47];
-params.freqBands = [8 20; 20 70; 70 130; 130 200; 200 300]; 
-params.LFPwindowSize = 256;
-params.FFTwindowSize = 256;
-params.nFFT = 256;
-an_data = do_LFPanalysis_funct(an_data,params);
+[an_data,~] = import_plexon('E1_1800117_SSEP3.plx')
+% params.binSize = 0.05;
+% params.data_ch = [0:15 32:47];
+% params.freqBands = [8 20; 20 70; 70 130; 130 200; 200 300]; 
+% params.LFPwindowSize = 256;
+% params.FFTwindowSize = 256;
+% params.nFFT = 256;
+% an_data = do_LFPanalysis_funct(an_data,params);
+
+figure(1)
+y = (1:1:size(an_data.data,2))/1000;
+ax1 = subplot(5,1,1)
+plot(y,an_data.data(2,:))
+title(ax1,'VL')
+ax2 = subplot(5,1,2)
+plot(y,an_data.data(4,:))
+title(ax2,'GS')
+ax3 = subplot(5,1,3)
+plot(y,an_data.data(5,:))
+title(ax3,'BFp')
+ax4 = subplot(5,1,4)
+plot(y,an_data.data(6,:))
+title(ax4,'LG')
+ax5 = subplot(5,1,5)
+plot(y,an_data.data(7,:))
+title(ax5,'TA')
+linkaxes([ax1,ax2,ax3,ax4,ax5],'x');
+
+
+
 temp = an_data;
+
+lags = zeros(32,3);
+for i = 1:32
+    [acor,lag] = xcorr(sp_data(i).fr,spikes(:,i+1)');
+
+    [lags(i,3),I] = max(abs(acor));
+    lags(i,1) = lag(I);
+    lags(i,2) = lags(i,1)/20;
+end
+
+lagstr = zeros(201,32);
+testlag = 1;
+for i = 1:32
+    [acor,lag] = xcorr(sp_data(i).fr,spikes(:,i+1)');
+    for j = -100:100
+        lagstr(j+101,i) = acor(find(lag == j))/lags(i,3);    
+    end
+end
+plot(-100:100,lagstr)
+
+%figure
+%plot(lag,acor)
+%a3 = gca;
+%a3.XTick = sort([-3000:1000:3000 lagDiff]);
+
 
 stim_ts = find(abs(temp.data(18,:))> 2);
 tim = [stim_ts(1)];
@@ -108,3 +155,31 @@ y = fft(acor);
 L = length(acor);
 power = abs(y).^2/L;
 plot((0:(L-1)/2)*(2000/L),power(1:(L+1)/2))
+
+lags = [];
+for j = 1:16
+    temp_data = spikedata(j).ts;
+    for i = 2:length(temp_data) 
+        %if temp_data(i)-temp_data(i-2) < .99 & temp_data(i) - temp_data(i-1) < 0.01
+        lags(end+1) = temp_data(i)-temp_data(i-1);
+            %fprintf('%d:%d\n',i-2,lags(end));
+        %end
+    end
+end
+edges = [0:0.001:0.1 0.15:0.05:1 10];
+histogram(lags,edges)
+
+lags = [];
+for j = 1:16
+    temp_data = spikedata2(j).ts;
+    for i = 1:length(temp_data)
+        [m,p] = min(abs(temp_data(i) - stimind_t2));
+        if temp_data(i) - stimind_t2(p) < 0
+            m = -1 * m;
+        end
+        lags(end+1) = m;    
+    end
+end
+edges = [-1:0.001:1];
+histogram(lags,edges)
+
