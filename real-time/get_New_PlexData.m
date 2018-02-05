@@ -13,7 +13,7 @@ if n > 0
     end
 
     % remove stim artifacts
-    ts_new = remove_Artifacts(ts_new, params);
+    % ts_new = remove_Artifacts(ts_new, params);
 end
 
 % want to worry about sorted neurons? will have to change this...
@@ -29,7 +29,7 @@ end
 % firing_rates = [new_spikes'; data.spikes(1:end-1,:)];
 
 % remove any high frequency noise
-if any(new_spikes > 400)
-    new_spikes(new_spikes>400) = 400;
-    warning('Noise detected, FR capped at 400 Hz');
-end
+%if any(new_spikes > 400)
+%    new_spikes(new_spikes>400) = 400;
+%    warning('Noise detected, FR capped at 400 Hz');
+%end
