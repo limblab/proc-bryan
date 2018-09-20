@@ -1,8 +1,9 @@
-function [ output_args ] = bipolar_stim_ws(stim_amp, stim_PW, tl, freq, channels)
+function [ output_args ] = bipolar_stim_ws(amp, pw, tl, freq, ch_list)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
-stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',false,'zb_ch_page',2,'serial_string','COM4');
+stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',true,'zb_ch_page',2,'serial_string','COM5');
+
 ws  = wireless_stim(stim_params);
 
 ws.init();

@@ -64,11 +64,11 @@ if ~exist('ws', 'var')
 end
 
 %set train delay so I have staggered pulses
-for i=1:length(channels)
-    ws.set_TD(50+500*i, channels(i));
-end
+%for i=1:length(channels)
+%    ws.set_TD(50+500*i, channels(i));
+%end
 
-ws.set_Run(ws.run_stop, channels);
+%ws.set_Run(ws.run_stop, channels);
 
 %TODO: check this
 %send timing pulse
@@ -82,7 +82,7 @@ ws.set_Run(ws.run_stop, channels);
 %     );
 % ws.set_stim(command, 16);
 % ws.set_Run(ws.run_once_go)
-pause(2); %wait for the Vicon to be activated
+pause(1); %wait for the Vicon to be activated
 %TODO: add vicon activation! will be easy
 
 
@@ -151,6 +151,7 @@ end
 
 %stop all stimulation before ending program
 ws.set_Run(ws.run_stop, channels);
+
 
 %TODO: pause long enough for stim to end??
 end

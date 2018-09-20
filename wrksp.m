@@ -9,27 +9,37 @@
 
 figure(1)
 y = (1:1:size(an_data.data,2))/1000;
-ax1 = subplot(5,1,1)
+ax1 = subplot(8,1,1)
+plot(y,an_data.data(1,:))
+title(ax1,'IP')
+ax2 = subplot(8,1,2)
 plot(y,an_data.data(2,:))
-title(ax1,'VL')
-ax2 = subplot(5,1,2)
-plot(y,an_data.data(4,:))
 title(ax2,'GS')
-ax3 = subplot(5,1,3)
+ax3 = subplot(8,1,3)
+plot(y,an_data.data(3,:))
+title(ax3,'VL')
+ax4 = subplot(8,1,4)
+plot(y,an_data.data(4,:))
+title(ax4,'BFa')
+ax5 = subplot(8,1,5)
 plot(y,an_data.data(5,:))
-title(ax3,'BFp')
-ax4 = subplot(5,1,4)
+title(ax5,'BFp')
+ax6 = subplot(8,1,6)
 plot(y,an_data.data(6,:))
-title(ax4,'LG')
-ax5 = subplot(5,1,5)
+title(ax6,'LG')
+ax7 = subplot(8,1,7)
 plot(y,an_data.data(7,:))
-title(ax5,'TA')
-linkaxes([ax1,ax2,ax3,ax4,ax5],'x');
+title(ax7,'TA')
+ax8 = subplot(8,1,8)
+plot(y,an_data.data(8,:))
+title(ax8,'GND')
+linkaxes([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8],'x');
 
 
 
 temp = an_data;
 
+%Cross correlation
 lags = zeros(32,3);
 for i = 1:32
     [acor,lag] = xcorr(sp_data(i).fr,spikes(:,i+1)');
@@ -92,6 +102,8 @@ title('E2 left leg')
 xlabel('ms')
 ylabel('mV')
 
+
+%FFT
 y = fft(an_data.data(34,:));
 power = abs(y).^2/958187;
 plot((0:958186)*(2000/958186),power)
@@ -183,3 +195,22 @@ end
 edges = [-1:0.001:1];
 histogram(lags,edges)
 
+i=8;
+figure(1);
+plot(predData.timeframe,predData.actualData(:,i));
+hold on;
+plot(predData.timeframe,predData.preddatabin(:,i));
+
+m = mean(EMGs.Preds);
+s = std(EMGs.Preds);
+
+i = 1;
+plot(EMGs.ts,EMGs.Preds(:,i))
+hold on
+plot(EMGs.ts,m(i)*ones(length(EMGs.Preds),1))
+hold on
+plot(EMGs.ts,(m(i) + s(i))*ones(length(EMGs.Preds),1))
+hold on
+plot(EMGs.ts,(m(i) + 2*s(i))*ones(length(EMGs.Preds),1))
+hold on
+plot(EMGs.ts,(m(i) + 3*s(i))*ones(length(EMGs.Preds),1))
