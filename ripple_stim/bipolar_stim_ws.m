@@ -12,6 +12,7 @@ ws.version();
 %% 
 ch_list         = 1:16;
 stim_PW         = 1000*stim_PW;     % Pulse width converted
+
 if length(stim_amp) == 1
     stim_amp    = repmat(1000*stim_amp,1,size(channels,2));
 else
@@ -54,11 +55,13 @@ ws.set_Run( ws.run_cont, anode_list );
 ws.set_Run( ws.run_cont, cathode_list );
 
 %% --the wireless stimulator expect a 16-channel command
+
 amp_cmd          = zeros(1,length(ch_list));
 amp_cmd(anode_list)     = stim_amp;
 amp_cmd(cathode_list)   = stim_amp;
 cmd_Cath = amp_cmd + AMP_OFFSET;
 cmd_Anod = AMP_OFFSET - amp_cmd;
+
 % create the stimulation command. 
 cmd{1}          = struct('CathAmp', cmd_Cath, 'AnodAmp', cmd_Anod);
 ws.set_stim(cmd(1),ch_list)
@@ -72,5 +75,8 @@ end
 ws.set_Run(ws.run_stop, reshape(channels,1,[]));
 
 
-end
 
+ws.set_Run(ws.run_stop, channels);
+
+
+end
