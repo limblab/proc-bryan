@@ -1,8 +1,8 @@
-function [ output_args ] = bipolar_stim_ws(amp, pw, tl, freq, ch_list)
+function [ output_args ] = bipolar_stim_ws(stim_amp, stim_PW, tl, freq, channels)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
-stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',true,'zb_ch_page',2,'serial_string','COM5');
+stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',false,'zb_ch_page',2,'serial_string','COM4');
 
 ws  = wireless_stim(stim_params);
 
@@ -49,26 +49,12 @@ ws.set_PL( 1, cathode_list );
 ws.set_Run( ws.run_cont, anode_list );
 ws.set_Run( ws.run_cont, cathode_list );
 
-%%
-
-% assign it to the corresponding stim anode and cathode
-% elecs_this_muscle = zeros(1,length(channels));
-% for i = 1:length(channels/2)
-%     elecs_this_muscle(i) = bmi_fes_stim_params.anode_map{1,i};
-% end
-% for i = 1:length(channels/2)
-%     elecs_this_muscle(i+length(stim_PW)) = bmi_fes_stim_params.cathode_map{1,i};
-% end
-  
-% add the channels we are not stimulating to the command,
-% and populate their amp with zeroes
-% --the wireless stimulator expect a 16-channel command
+%% --the wireless stimulator expect a 16-channel command
 amp_cmd          = zeros(1,length(ch_list));
 amp_cmd(anode_list)     = stim_amp;
 amp_cmd(cathode_list)   = stim_amp;
 cmd_Cath = amp_cmd + AMP_OFFSET;
 cmd_Anod = AMP_OFFSET - amp_cmd;
-
 % create the stimulation command. 
 cmd{1}          = struct('CathAmp', cmd_Cath, 'AnodAmp', cmd_Anod);
 ws.set_stim(cmd(1),ch_list)
