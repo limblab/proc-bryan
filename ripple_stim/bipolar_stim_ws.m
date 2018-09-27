@@ -1,94 +1,76 @@
-function [ output_args ] = bipolar_stim_ws(amp, pw, tl, freq, ch_list)
+function [ output_args ] = bipolar_stim_ws(stim_amp, stim_PW, tl, freq, channels)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
-stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',true,'zb_ch_page',2,'serial_string','COM5');
+stim_params = struct('dbg_lvl',1,'comm_timeout_ms',15,'blocking',false,'zb_ch_page',2,'serial_string','COM4');
 
 ws  = wireless_stim(stim_params);
+
 ws.init();
 ws.version();
 
-ws.set_Run(ws.run_stop, ch_list);
-% %channel_list = [[1] [9]];
-% amp = amp*1000;
-% pw = pw * 1000;
-% 
-% chs_cmd         = 1:ws.num_channels;
-%         
-% % set train duration, stim freq and run mode 
-% % ToDo: check if TL and Run are necessary if we are then doing cont
-% ws.set_TL( tl, chs_cmd );
-% ws.set_Freq(freq , chs_cmd );
-%                                 
-% % set pulse width to zero
-% ws.set_AnodDur( pw, chs_cmd );
-% ws.set_CathDur( pw, chs_cmd );
-% 
-% amp_cmd         = zeros(1,length(chs_cmd));
-% amp_cmd(1)      = amp;
-% amp_cmd(9)      = amp;
-% 
-% ws.set_AnodAmp( 32768-amp_cmd, chs_cmd );
-% ws.set_CathAmp( 32768+amp_cmd, chs_cmd );
-% 
-% ws.set_PL( 0, [1:8] );
-% ws.set_PL( 1, [9:16] );
-
-% stim_cmd{1}         = struct(   'TL',      tl );
-% stim_cmd{8}         = struct(   'TL',      tl );
-% stim_cmd{2}         = struct(   'Freq',    freq );
-% stim_cmd{9}        = struct(   'Freq',    freq );
-% stim_cmd{3}         = struct(   'CathAmp', 32768+amp*1000 );
-% stim_cmd{10}        = struct(   'CathAmp', 32768+amp*1000 );
-% stim_cmd{4}         = struct(   'AnodAmp', 32768-amp*1000 );
-% stim_cmd{11}        = struct(   'AnodAmp', 32768-amp*1000 );
-% stim_cmd{5}         = struct(   'CathDur', pw*1000 );
-% stim_cmd{12}        = struct(   'CathDur', pw*1000 );
-% stim_cmd{6}         = struct(   'AnodDur', pw*1000 );
-% stim_cmd{13}        = struct(   'AnodDur', pw*1000 );
-% %stim_cmd{7}         = struct(   'TD',      {0} );
-% %stim_cmd{15}        = struct(   'TD',      {0} );
-% stim_cmd{7}         = struct(   'PL',      ones(1,1) );
-% stim_cmd{14}        = struct(   'PL',      zeros(1,1) );
-
-stim_cmd{1} = struct(   'TL', tl,...
-    'Freq',    freq,...
-    'CathAmp', 32768+amp*1000,...    
-    'AnodAmp', 32768-amp*1000,...
-    'CathDur', pw*1000,...    
-    'AnodDur', pw*1000,...
-    'PL',      [1,0]);
-% stim_cmd{2} = struct(   'TL', tl,...
-%     'Freq',    freq,...    
-%     'CathAmp', 32768+amp*1000,...
-%     'AnodAmp', 32768-amp*1000,...    
-%     'CathDur', pw*1000,...
-%     'AnodDur', pw*1000,...
-%     'PL',      zeros(1,1));
-
-% for i = 1:length(ch_list) 
-%     for ii = 1:length(stim_cmd)/2
-%         ws.set_stim(stim_cmd(ii+(i-1)*length(stim_cmd)/2),ch_list(i));
-% 	end
-% end
-ws.set_stim(stim_cmd(1), ch_list);
-%ws.set_stim(stim_cmd(2), ch_list(2,:));
-
-%ws.set_stim(stim_cmd,ch_list);
-%for i = 1:length(ch_list)
-ws.set_Run(ws.run_cont, ch_list);
-%end
-%tic
-stim_ctrl = msgbox('Click to Stop the Stimulation','Continuous Stimulation');
-
-while ishandle(stim_ctrl)
-    ws.set_stim(stim_cmd(1), ch_list);
-    %ws.set_stim(stim_cmd(2), ch_list(2,:));
-    pause(.05);
+%% 
+ch_list         = 1:16;
+stim_PW         = 1000*stim_PW;     % Pulse width converted
+if length(stim_amp) == 1
+    stim_amp    = repmat(1000*stim_amp,1,size(channels,2));
+else
+    stim_amp    = 1000*stim_amp;
 end
-ws.set_Run(ws.run_stop, ch_list);
-%ws.set_stim(stim_cmd, ch_list);
-%ws.set_Run(ws.run_once, ch_list);
+chs_cmd         = 1:ws.num_channels;
+AMP_OFFSET      = 32768;
+
+ws.set_Freq(freq, chs_cmd );
+ws.set_TD( 50,chs_cmd ); % minimum allowed is 50 us -- see below for additional notes on this KB 07/14/2017
+
+ws.set_AnodAmp( AMP_OFFSET, chs_cmd ); % set to zeros
+ws.set_CathAmp( AMP_OFFSET, chs_cmd );
+
+% define arrays with the anodes and cathodes
+anode_list      = channels(1,:);
+cathode_list    = channels(2,:);
+               
+% the zigbee command has to include all 16 channels
+% here we add all the channels (even those we are not
+% stimulating) and set up their stimulation amplitudes
+pw_cmd         = zeros(1,length(chs_cmd));
+pw_cmd(anode_list)     = stim_PW;
+pw_cmd(cathode_list)   = stim_PW;
+                
+% set amplitude -- done in a different command because of
+% limitations in command length (register write in zigbee)
+ws.set_AnodDur( pw_cmd, chs_cmd );
+ws.set_CathDur( pw_cmd, chs_cmd );
+                
+% Set polarity for the anodes...
+% Set polarity to anodic first
+ws.set_PL( 0, anode_list );
+% ... and for the cathodes
+% Set polarity to anodic first
+ws.set_PL( 1, cathode_list );
+                
+% set to run continuous
+ws.set_Run( ws.run_cont, anode_list );
+ws.set_Run( ws.run_cont, cathode_list );
+
+%% --the wireless stimulator expect a 16-channel command
+amp_cmd          = zeros(1,length(ch_list));
+amp_cmd(anode_list)     = stim_amp;
+amp_cmd(cathode_list)   = stim_amp;
+cmd_Cath = amp_cmd + AMP_OFFSET;
+cmd_Anod = AMP_OFFSET - amp_cmd;
+% create the stimulation command. 
+cmd{1}          = struct('CathAmp', cmd_Cath, 'AnodAmp', cmd_Anod);
+ws.set_stim(cmd(1),ch_list)
+tic;
+while toc < tl/1000
+%     for whichCmd = 1:length(cmd)
+    ws.set_stim(cmd(1), ch_list);
+%     end
+end
+
+ws.set_Run(ws.run_stop, reshape(channels,1,[]));
+
 
 end
 
