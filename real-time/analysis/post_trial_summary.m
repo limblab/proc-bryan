@@ -10,9 +10,11 @@ x = (0:floor((L-1)/2))*(1/binsize/(L-1));
 
 
 fs = 1/binsize;
-[pxx,f] = pwelch(EMGs.Preds,[],[],200,fs);
-plot(repmat(f,1,7),log10(pxx));
-
+[pxx2,f] = pwelch(EMGs2.Preds,[],[],256,fs);
+plot(repmat(f,1,7),log10(pxx3));
+xlabel('Frequency (Hz)')
+ylabel('PSD (dB/Hz)')
+pxx3 = pxx2 - pxx;
 
 figure(1);
 for i = 1:length(muscle_list)
