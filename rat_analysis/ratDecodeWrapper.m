@@ -19,7 +19,7 @@ end
 % plxVicon = Vicon_sync.data(viconChannel,:) > -1; %change back to 1 for trials with valid plexon file
 % plxFreq = Vicon_sync.freq(1);
 % ind = find(plxVicon);  % find the samples when Vicon is collecting data
-%
+% 
 % useind = ind(1);
 % if length(find(diff(plxVicon) > .5)) > 1
 %     disp('maybe more than one segment of Vicon acquisition in this file')
@@ -39,7 +39,7 @@ end
 % 
 % ViconSync.timeframe_plexon = Vicon_sync.timeframe;
 % ViconSync.timeframe_aligned = Vicon_sync.timeframe - ViconSync.OnsetTime;  % this has the times of plexon analog signals, such that t = 0 is when Vicon starts
-% 
+
 
 %% Load neural data and bin it.
 spikedata = load_plexondata_spikes(filename, rat_params.binSize, rat_params.sorted);
